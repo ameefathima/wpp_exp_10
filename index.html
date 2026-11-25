@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dynamic News Feed</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f4f6f9;
+      color: #222;
+      line-height: 1.6;
+    }
+
+    header {
+      background: #1a237e;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+    }
+
+    .controls {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .controls input {
+      flex: 1;
+      min-width: 220px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .controls button {
+      padding: 10px 18px;
+      background: #ff6f00;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .controls button:hover {
+      background: #e65100;
+    }
+
+    .controls button.secondary {
+      background: #3949ab;
+    }
+
+    .controls button.secondary:hover {
+      background: #283593;
+    }
+
+    main {
+      max-width: 1140px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 1.05rem;
+      margin: 20px 0;
+      color: #555;
+    }
+
+    .status.error {
+      color: #c62828;
+      background: #ffebee;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    /* Responsive Grid for News Cards */
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .news-card {
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .news-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+    }
+
+    .news-card img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      background: #dce1e7;
+    }
+
+    .card-body {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .source-badge {
+      background: #e8eaf6;
+      color: #1a237e;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 10px;
+    }
+
+    .card-title a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .card-title a:hover {
+      color: #1a237e;
+    }
+
+   .card-desc {
+      font-size: 0.92rem;
+      color: #444;
+      margin-bottom: 16px;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      overflow: hidden;
+    }
+
+    .read-more {
+      align-self: flex-start;
+      text-decoration: none;
+      color: #1a237e;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .read-more:hover {
+      text-decoration: underline;
+    }
+
+    .load-more-container {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    #loadMoreBtn {
+      display: none;
+      padding: 12px 28px;
+      background: #1a237e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #loadMoreBtn:hover {
+      background: #283593;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Live Science & Space News Feed</h1>
+    <form class="controls" id="searchForm">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search topics (e.g., Mars, NASA, Rocket)..."
+        autocomplete="off"
+      />
+      <button type="submit">Search</button>
+      <button type="button" class="secondary" id="refreshBtn">Refresh Feed</button>
+    </form>
+  </header>
+
+  <main>
+    <div id="statusMessage" class="status">Loading latest news...</div>
+    <section class="news-grid" id="newsGrid"></section>
+
+    <div class="load-more-container">
+      <button id="loadMoreBtn">Load More Articles</button>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE_URL = "https://api.spaceflightnewsapi.net/v4/articles/";
+    const LIMIT = 6;
+
+    const newsGrid = document.getElementById("newsGrid");
+    const statusMessage = document.getElementById("statusMessage");
+    const searchForm = document.getElementById("searchForm");
+    const searchInput = document.getElementById("searchInput");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+
+    let currentOffset = 0;
+    let currentQuery = "";
+
+    // Format ISO timestamp into a clean, readable date
+    function formatDate(isoString) {
+      if (!isoString) return "Unknown Date";
+      const date = new Date(isoString);
+      return date.toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    // Create and append a single article card to the DOM
+    function createArticleCard(article) {
+      const card = document.createElement("article");
+      card.className = "news-card";
+
+      const fallbackImage = "https://via.placeholder.com/400x200?text=No+Image+Available";
+      const imageUrl = article.image_url || fallbackImage;
+      const title = article.title || "Untitled Article";
+      const description = article.summary || "No description provided.";
+      const source = article.news_site || "Unknown Source";
+      const pubDate = formatDate(article.published_at);
+      const articleUrl = article.url || "#";
+
+      card.innerHTML = `
+        <img src="${imageUrl}" alt="${title}" onerror="this.src='${fallbackImage}'" />
+        <div class="card-body">
+          <div class="meta">
+            <span class="source-badge">${source}</span>
+            <span>${pubDate}</span>
+          </div>
+          <h2 class="card-title">
+            <a href="${articleUrl}" target="_blank" rel="noopener noreferrer">${title}</a>
+          </h2>
+          <p class="card-desc">${description}</p>
+          <a href="${articleUrl}" target="_blank" rel="noopener noreferrer" class="read-more">
+            Read Full Article &rarr;
+          </a>
+        </div>
+      `;
+
+      return card;
+    }
+
+    // Fetch news dynamically without reloading the page
+    async function fetchNews(reset = false) {
+      if (reset) {
+        currentOffset = 0;
+        newsGrid.innerHTML = "";
+        loadMoreBtn.style.display = "none";
+      }
+
+      statusMessage.className = "status";
+      statusMessage.textContent = "Fetching news articles...";
+
+      try {
+        const url = new URL(API_BASE_URL);
+        url.searchParams.append("limit", LIMIT);
+        url.searchParams.append("offset", currentOffset);
+
+        if (currentQuery) {
+          url.searchParams.append("search", currentQuery);
+        }
+
+        const response = await fetch(url.toString());
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status} - Unable to fetch news.`);
+        }
+
+        const data = await response.json();
+        const articles = data.results;
+
+        if (!articles || articles.length === 0) {
+          if (reset) {
+            statusMessage.textContent = `No articles found for "${currentQuery}".`;
+          } else {
+            statusMessage.textContent = "No more articles to load.";
+            loadMoreBtn.style.display = "none";
+          }
+          return;
+        }
+
+        // Render each article dynamically into the grid
+        articles.forEach((article) => {
+          const card = createArticleCard(article);
+          newsGrid.appendChild(card);
+        });
+
+        statusMessage.textContent = "";
+        currentOffset += LIMIT;
+
+        // Show "Load More" button if more results exist on the server
+        loadMoreBtn.style.display = data.next ? "inline-block" : "none";
+      } catch (error) {
+        statusMessage.className = "status error";
+        statusMessage.textContent = error.message || "Failed to load news feed. Check your connection.";
+      }
+    }
+
+    // Event: Search without page refresh
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      currentQuery = searchInput.value.trim();
+      fetchNews(true);
+    });
+
+    // Event: Refresh / Reset feed without page refresh
+    refreshBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      currentQuery = "";
+      fetchNews(true);
+    });
+
+    // Event: Load next batch of articles dynamically
+    loadMoreBtn.addEventListener("click", () => {
+      fetchNews(false);
+    });
+
+    // Initial load when page opens
+    window.addEventListener("DOMContentLoaded", () => {
+      fetchNews(true);
+    });
+  </script>
+</body>
+</html>
